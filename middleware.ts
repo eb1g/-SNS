@@ -28,7 +28,8 @@ export async function middleware(request: NextRequest) {
   if (user && !request.nextUrl.pathname.startsWith("/api/")) {
     const { data } = await supabase.from("profiles").select("role,is_suspended").eq("id", user.id).maybeSingle();
     currentProfile = data;
-    if (data?.is_suspended && data.role !== "admin" && request.nextUrl.pathname !== "/suspended") {
+    const isAuthPath = request.nextUrl.pathname === "/login" || request.nextUrl.pathname.startsWith("/auth/");
+    if (data?.is_suspended && data.role !== "admin" && request.nextUrl.pathname !== "/suspended" && !isAuthPath) {
       return NextResponse.redirect(new URL("/suspended", request.url));
     }
   }
