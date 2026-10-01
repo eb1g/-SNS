@@ -6,13 +6,11 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Availability = "idle" | "checking" | "available" | "taken" | "invalid";
-type OAuthProvider = "discord" | "github" | "gitlab" | "twitter";
+type OAuthProvider = "discord" | "github";
 
 const socialProviders: Array<{ provider: OAuthProvider; label: string; mark: string; className: string }> = [
   { provider: "discord", label: "Discord", mark: "◉", className: "bg-[#5865f2] hover:bg-[#4752c4]" },
   { provider: "github", label: "GitHub", mark: "", className: "bg-[#24292f] hover:bg-[#17191c]" },
-  { provider: "gitlab", label: "GitLab", mark: "◆", className: "bg-[#fc6d26] hover:bg-[#e24329]" },
-  { provider: "twitter", label: "X", mark: "𝕏", className: "bg-black hover:bg-zinc-800" },
 ];
 
 export function AuthForm({ initialSignup = false }: { initialSignup?: boolean }) {
@@ -93,7 +91,7 @@ export function AuthForm({ initialSignup = false }: { initialSignup?: boolean })
     <div className="auth-emblem !rounded-2xl !bg-orange-100 !text-orange-700"><Sparkles size={24} /></div>
     {step === "details" ? <>
       <h1 className="page-heading">{mode === "signup" ? "きつね村に参加" : "おかえりなさい"}</h1>
-      <p className="page-subtitle">メールアドレスに届く6桁コード、またはSNSアカウントでログインできます。</p>
+      <p className="page-subtitle">メールアドレスに届く6桁コード、またはDiscord・GitHubでログインできます。</p>
       <form onSubmit={sendCode} className="space-y-1">
         {mode === "signup" && <>
           <div className="field"><label htmlFor="username">ユーザーID</label><input className="input" id="username" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value.trim().toLowerCase())} placeholder="kitsune_01" required minLength={3} maxLength={20} />{usernameState}</div>
