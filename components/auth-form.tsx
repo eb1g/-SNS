@@ -69,11 +69,25 @@ export function AuthForm({ initialSignup = false }: { initialSignup?: boolean })
     setBusy(true); setMessage("");
     try {
       const { error } = await createClient().auth.verifyOtp({ email: email.trim(), token: otp, type: "email" });
-      if (error) { setMessage(error.message); return; }
+      if (error) {
+        setOtp("");
+        setMessage(/expired|invalid/i.test(error.message) ? "コードの有効期限が切れているか、すでに使用されています。最新のコードを再送してください。" : error.message);
+        return;
+      }
       window.location.assign(await ensureProfileAfterAuth());
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "プロフィールの作成に失敗しました。");
     } finally { setBusy(false); }
+  }
+
+  async function resendCode() {
+    setBusy(true); setMessage("");
+    const { error } = await createClient().auth.signInWithOtp({
+      email: email.trim(),
+      options: { shouldCreateUser: mode === "signup", data: mode === "signup" ? { username, display_name: displayName.trim() || username } : undefined },
+    });
+    setBusy(false);
+    setMessage(error ? error.message : `${email} に新しい6桁コードを再送しました。最新のメールを確認してください。`);
   }
 
   async function signInWithProvider(provider: OAuthProvider) {
@@ -114,7 +128,7 @@ export function AuthForm({ initialSignup = false }: { initialSignup?: boolean })
       <form onSubmit={verifyCode}><div className="field"><label htmlFor="otp">ワンタイムコード</label><input className="input otp-input" id="otp" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="••••••" required /></div>
         {message && <p className="notice notice-error" role="status">{message}</p>}
         <button className="button button-primary !min-h-12 !w-full !rounded-xl !bg-orange-500 hover:!bg-orange-600" disabled={busy || otp.length !== 6}><KeyRound size={16} />{busy ? "確認中..." : "ログイン"}</button>
-      </form><button type="button" className="icon-button" style={{marginTop:10}} onClick={() => void createClient().auth.signInWithOtp({email: email.trim(), options:{shouldCreateUser:mode === "signup", data:{username,display_name:displayName || username}}})}>コードを再送する</button>
+      </form><button type="button" className="icon-button" style={{marginTop:10}} onClick={() => void resendCode()} disabled={busy}>コードを再送する</button>
     </>}
     <p className="helper" style={{marginTop:15}}>続行すると、きつねSNSの利用規約に同意したものとみなされます。</p>
     <Link href="/" className="helper" style={{display:"inline-block",marginTop:8}}>トップへ戻る</Link>
