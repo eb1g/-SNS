@@ -1,0 +1,11 @@
+project_id = "kitsune-sns"
+
+[auth]
+enabled = true
+site_url = "https://kitsunesns.f5.si"
+additional_redirect_urls = ["http://localhost:3000", "https://kitsunesns.f5.si"]
+
+[auth.email]
+enable_signup = true
+otp_length = 6
+otp_expiry = 3600

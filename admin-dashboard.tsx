@@ -1,0 +1,21 @@
+"use client";
+
+import { useState } from "react";
+import { Ban, Check, Crown, Trash2, UserPlus } from "lucide-react";
+import type { Post, Profile } from "@/lib/types";
+
+type AdminPost=Post & {profile:{username:string;display_name:string}};
+export function AdminDashboard({users,posts,userCount,postCount,proCount}:{users:Profile[];posts:AdminPost[];userCount:number;postCount:number;proCount:number}) {
+  const [username,setUsername]=useState("");const [tagName,setTagName]=useState("");const [busy,setBusy]=useState(false);const [message,setMessage]=useState("");
+  async function manage(payload:Record<string,string>) {
+    setBusy(true);setMessage("");const response=await fetch("/api/admin/manage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});const body=await response.json();setBusy(false);
+    if(!response.ok){setMessage(body.error??"操作できませんでした。");return;}setMessage("操作を反映しました。");window.location.reload();
+  }
+  return <main className="page-wrap" style={{padding:"36px 0 70px"}}>
+    <div style={{display:"flex",alignItems:"center",gap:10}}><Crown color="var(--fox)"/><h1 className="page-heading" style={{margin:0}}>管理者ダッシュボード</h1></div><p className="page-subtitle" style={{marginTop:7}}>きつね村のアカウントと投稿を管理します。</p>
+    <section className="stat-grid"><div className="panel stat"><span>総ユーザー数</span><strong>{userCount.toLocaleString("ja-JP")}</strong></div><div className="panel stat"><span>総投稿数</span><strong>{postCount.toLocaleString("ja-JP")}</strong></div><div className="panel stat"><span>Pro稼働数</span><strong>{proCount.toLocaleString("ja-JP")}</strong></div></section>
+    <section className="panel" style={{padding:18,marginBottom:20}}><h2 style={{fontSize:16,margin:"0 0 13px"}}>カスタムタグを付与</h2><form onSubmit={(event)=>{event.preventDefault();void manage({action:"assign-tag",username,tagName});}} style={{display:"flex",gap:9,alignItems:"end",flexWrap:"wrap"}}><div className="field" style={{margin:0,flex:"1 1 200px"}}><label htmlFor="tag-user">対象のユーザー名</label><input className="input" id="tag-user" value={username} onChange={(event)=>setUsername(event.target.value)} placeholder="username" required /></div><div className="field" style={{margin:0,flex:"1 1 200px"}}><label htmlFor="tag-name">カスタムタグ名</label><input className="input" id="tag-name" value={tagName} onChange={(event)=>setTagName(event.target.value)} maxLength={24} placeholder="公式" required /></div><button className="button button-primary" disabled={busy}><UserPlus size={15}/>決定</button></form>{message&&<p className="notice" role="status" style={{marginBottom:0}}>{message}</p>}</section>
+    <section className="panel" style={{padding:18,marginBottom:20}}><h2 style={{fontSize:16,margin:"0 0 12px"}}>ユーザー一覧</h2><div className="table-wrap"><table className="data-table"><thead><tr><th>ユーザー</th><th>ID</th><th>登録日</th><th>状態</th><th>操作</th></tr></thead><tbody>{users.map((item)=><tr key={item.id}><td>{item.display_name}</td><td>@{item.username}</td><td>{new Intl.DateTimeFormat("ja-JP").format(new Date(item.created_at))}</td><td>{item.is_suspended?"凍結中":"有効"}{item.is_pro&&" · Pro"}</td><td><button className={`button ${item.is_suspended?"button-soft":"button-outline"}`} disabled={busy||item.role==="admin"} onClick={()=>void manage({action:"suspend",userId:item.id})}>{item.is_suspended?<Check size={14}/>:<Ban size={14}/>} {item.is_suspended?"解除":"BAN／凍結"}</button></td></tr>)}</tbody></table></div></section>
+    <section className="panel" style={{padding:18}}><h2 style={{fontSize:16,margin:"0 0 12px"}}>投稿管理</h2><div className="table-wrap"><table className="data-table"><thead><tr><th>投稿者</th><th>内容</th><th>日時</th><th>操作</th></tr></thead><tbody>{posts.map((post)=><tr key={post.id}><td>@{post.profile?.username??"unknown"}</td><td style={{maxWidth:420,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{post.content||"画像付き投稿"}</td><td>{new Intl.DateTimeFormat("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}).format(new Date(post.created_at))}</td><td><button className="button button-danger" disabled={busy} onClick={()=>{if(window.confirm("この投稿を削除しますか？"))void manage({action:"delete-post",postId:post.id});}}><Trash2 size={14}/>削除</button></td></tr>)}</tbody></table></div></section>
+  </main>;
+}
