@@ -32,7 +32,7 @@ export function AuthForm({ initialSignup = false }: { initialSignup?: boolean })
     let active = true;
     const timer = window.setTimeout(async () => {
       if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) { if (active) setAvailability("idle"); return; }
-      const { data, error } = await createClient().from("profiles").select("id").eq("username", username).maybeSingle();
+      const { data, error } = await createClient().from("profiles").select("id").ilike("username", username).maybeSingle();
       if (active) setAvailability(error ? "idle" : data ? "taken" : "available");
     }, 350);
     return () => { active = false; window.clearTimeout(timer); };
@@ -40,6 +40,9 @@ export function AuthForm({ initialSignup = false }: { initialSignup?: boolean })
 
   async function sendCode(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setMessage("");
+    if (mode === "signup" && (availability === "taken" || availability === "checking" || availability === "invalid")) {
+      setMessage(availability === "taken" ? "そのユーザーIDは既に使われています。別のIDを入力してください。" : "ユーザーIDを確認してから送信してください。"); setBusy(false); return;
+    }
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       setMessage("Supabaseの接続情報が未設定です。.env.localを設定してください。"); setBusy(false); return;
     }
@@ -57,10 +60,17 @@ export function AuthForm({ initialSignup = false }: { initialSignup?: boolean })
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData.user) throw userError ?? new Error("ログイン情報を取得できませんでした。");
     const user = userData.user;
-    const fallbackUsername = username || (typeof user.user_metadata?.username === "string" ? user.user_metadata.username : `fox_${user.id.slice(0, 12)}`);
-    const fallbackDisplayName = (displayName || user.user_metadata?.display_name || "きつね").trim();
-    const { error } = await supabase.from("profiles").upsert({ id: user.id, username: fallbackUsername, display_name: fallbackDisplayName || "きつね", bio: "" }, { onConflict: "id" });
-    if (error) throw error;
+    const { data: existing, error: existingError } = await supabase.from("profiles").select("id").eq("id", user.id).maybeSingle();
+    if (existingError) throw existingError;
+    if (!existing) {
+      const fallbackUsername = username || (typeof user.user_metadata?.username === "string" ? user.user_metadata.username : `fox_${user.id.slice(0, 12)}`);
+      const fallbackDisplayName = (displayName || user.user_metadata?.display_name || "きつね").trim();
+      const { error } = await supabase.from("profiles").insert({ id: user.id, username: fallbackUsername, display_name: fallbackDisplayName || "きつね", bio: "" });
+      if (error) {
+        if (error.code === "23505") throw new Error("そのユーザーIDは既に使われています。別のIDを選んでください。");
+        throw error;
+      }
+    }
     return "/";
   }
 
@@ -113,7 +123,7 @@ export function AuthForm({ initialSignup = false }: { initialSignup?: boolean })
         </>}
         <div className="field"><label htmlFor="email">メールアドレス</label><input className="input" id="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" required /></div>
         {message && <p className="notice notice-error" role="status">{message}</p>}
-        <button className="button button-primary !mt-1 !min-h-12 !w-full !rounded-xl !bg-orange-500 hover:!bg-orange-600" disabled={busy || (mode === "signup" && availability !== "available")}><Mail size={16} />{busy ? "送信中..." : "6桁コードを送る"}</button>
+        <button className="button button-primary !mt-1 !min-h-12 !w-full !rounded-xl !bg-orange-500 hover:!bg-orange-600" disabled={busy || (mode === "signup" && (availability === "taken" || availability === "checking" || availability === "invalid"))}><Mail size={16} />{busy ? "送信中..." : "6桁コードを送る"}</button>
       </form>
       <div className="my-7 flex items-center gap-3 text-xs text-stone-400"><div className="h-px flex-1 bg-orange-100" /><span>または以下でログイン</span><div className="h-px flex-1 bg-orange-100" /></div>
       <div className="grid grid-cols-2 gap-3">
